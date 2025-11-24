@@ -1,0 +1,100 @@
+import numpy as np
+import random
+
+def process_check_node(mu):
+    def conv(a,b):
+        tmp1=a[0]*b[0]+a[1]*b[1]
+        tmp2=a[0]*b[1]+a[1]*b[0]
+        return np.array([tmp1,tmp2])
+    v_pass=dict()
+    for i in range(4):
+        filtered_mu = {key: val for key, val in mu.items() if key[0] == i}
+        # print(filtered_mu)
+        for k,v in filtered_mu.items():
+            conv_target_dic=filtered_mu.copy()
+            conv_target_dic.pop(k)
+            # print(f"target{conv_target_dic}")
+
+            v_pass[k] =conv_target_dic.pop(random.choice(list(conv_target_dic.keys())))
+            for _,conv_target in conv_target_dic.items():
+                v_pass[k] = conv(v_pass[k],conv_target)
+            # print(f"v_pass{k}={v_pass[k]}")
+    return v_pass
+
+def process_judge(v_factor,v_pass,H):
+    kai=np.zeros((6,2))
+    for j in range(6):
+        filtered_vpass = {key: val for key, val in v_pass.items() if key[1] == j}.copy()
+        # print(filtered_vpass)
+        dot_all=v_factor[j].copy()
+        for v in filtered_vpass.values():
+            dot_all=dot_all*v
+        kai[j] = dot_all
+    
+    if np.all(kai[:,0]!=kai[:,1]):
+        print("No equal")
+        x_pred=(kai[:,0]<kai[:,1]).astype(int)
+        if np.all(np.dot(H,x_pred) == np.array([0,0,0,0])):
+            print("x_pred is correct")
+            print(f"x_pred={x_pred}")
+    return kai
+
+def process_variable_node(v_factor,v_pass):
+    mu=dict()
+    for j in range(6):
+        filtered_vpass = {key: val for key, val in v_pass.items() if key[1] == j}.copy()
+        # print(f"filtered_vpass{filtered_vpass}")
+        for k,v in filtered_vpass.items():
+            dot_target_dic=filtered_vpass.copy()
+            dot_target_dic.pop(k)
+            # print(dot_target_dic)
+            mu[k] = v_factor[j].copy()
+            # print(mu[k])
+            for _,conv_target in dot_target_dic.items():
+                mu[k] = mu[k]*conv_target
+            # print(mu[k])
+            mu[k] = mu[k]/np.sum(mu[k])
+            # print(mu[k])
+    return mu
+
+
+def prob_region_sp_decoder(v_factor):
+    def print_msg(msg):
+        for i in range(4):
+            for j in range(6):
+                if (i,j) in msg:
+                    print(f"msg[{i},{j}]={msg[(i,j)]}",end=" ")
+            print("")
+
+    H=np.array(
+        [
+            [1,1,0,0,1,0],
+            [1,1,1,0,0,1],
+            [1,0,1,1,0,1],
+            [0,0,0,1,1,1]
+        ]
+    )
+
+    v_pass=dict()
+    for i in range(H.shape[0]):
+        for j in range(H.shape[1]):
+            if H[i,j] == 1:
+                v_pass[(i,j)] = np.array([0.5,0.5])
+
+    v_pass=v_pass.copy()
+    for t in range(3):
+        print(f"t={t}")
+        mu=process_variable_node(v_factor,v_pass)
+        print("mu")
+        print_msg(mu)
+        v_pass=process_check_node(mu)
+        print("v_pass")
+        print_msg(v_pass)
+        print(process_judge(v_factor,v_pass,H))
+
+v_factor=np.array([[1,0],[1,0],[1,0],[0.5,0.5],[0.5,0.5],[0.5,0.5],[0.5,0.5]])
+prob_region_sp_decoder(v_factor)
+
+
+v_factor=np.array([[0.75,0.25],[0.75,0.25],[0.75,0.25],[0.75,0.25],[0.25,0.75],[0.75,0.25]])
+prob_region_sp_decoder(v_factor)
